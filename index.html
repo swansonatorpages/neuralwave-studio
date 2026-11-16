@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#090d16" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="NeuralWave" />
+  <title>NeuralWave Studio — Binaural Focus & Music Overlay</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+  <style>
+    :root {
+      --bg: #090d16;
+      --panel: #111827;
+      --panel-alt: #161f33;
+      --border: #243049;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --cyan: #22d3ee;
+      --violet: #a78bfa;
+      --emerald: #34d399;
+      --amber: #fbbf24;
+      --danger: #f87171;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      background: radial-gradient(circle at top, #111b33 0%, var(--bg) 60%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: env(safe-area-inset-top, 16px) 16px env(safe-area-inset-bottom, 28px);
+      line-height: 1.45;
+    }
+    .container { max-width: 980px; margin: 0 auto; }
+    header {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 14px 0 18px; border-bottom: 1px solid var(--border);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .logo-badge {
+      width: 40px; height: 40px; border-radius: 12px;
+      background: linear-gradient(135deg, rgba(34,211,238,0.2), rgba(167,139,250,0.25));
+      border: 1px solid rgba(34,211,238,0.45);
+      display: grid; place-items: center; font-weight: 800; color: var(--cyan);
+    }
+    h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
+    .subtitle { font-size: 0.8rem; color: var(--muted); }
+    .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .pill {
+      font-size: 0.75rem; padding: 4px 10px; border-radius: 999px;
+      background: rgba(34,211,238,0.1); border: 1px solid rgba(34,211,238,0.3); color: var(--cyan);
+    }
+    button {
+      font-family: inherit; cursor: pointer; border: 1px solid var(--border);
+      background: var(--panel-alt); color: var(--text); border-radius: 10px;
+      padding: 8px 14px; font-size: 0.85rem; font-weight: 600; transition: all 0.15s ease;
+    }
+    button:hover { border-color: var(--cyan); }
+    button.primary {
+      background: linear-gradient(135deg, #06b6d4, #6366f1);
+      border: none; color: #fff; padding: 11px 22px; font-size: 0.95rem;
+      box-shadow: 0 6px 20px rgba(6,182,212,0.28);
+    }
+    button.primary.playing {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      box-shadow: 0 6px 20px rgba(239,68,68,0.28);
+    }
+    button.active {
+      background: rgba(34,211,238,0.16); border-color: var(--cyan); color: var(--cyan);
+    }
+    .grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px; margin-top: 18px;
+    }
+    .card {
+      background: rgba(17, 24, 39, 0.88); backdrop-filter: blur(10px);
+      border: 1px solid var(--border); border-radius: 16px; padding: 18px;
+    }
+    .card-header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
+    }
+    .card-title { font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .scope-wrap {
+      background: #060911; border: 1px solid var(--border); border-radius: 12px;
+      overflow: hidden; position: relative; height: 110px; margin-bottom: 14px;
+    }
+    canvas { width: 100%; height: 100%; display: block; }
+    .scope-legend {
+      position: absolute; top: 8px; left: 10px; right: 10px;
+      display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted);
+      pointer-events: none;
+    }
+    .presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 14px; }
+    .preset-btn { text-align: left; padding: 9px 10px; background: #0d1424; }
+    .preset-btn .hz { display: block; font-size: 0.92rem; color: var(--cyan); font-weight: 700; }
+    .preset-btn .lbl { display: block; font-size: 0.72rem; color: var(--muted); font-weight: 500; }
+    .preset-btn.active { background: rgba(34,211,238,0.14); border-color: var(--cyan); }
+    .control-row { margin-bottom: 12px; }
+    .control-label {
+      display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); margin-bottom: 5px;
+    }
+    .control-label strong { color: var(--text); font-variant-numeric: tabular-nums; }
+    input[type="range"] {
+      width: 100%; accent-color: var(--cyan); height: 6px; background: #1e293b; border-radius: 999px; cursor: pointer;
+    }
+    .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .tabs button { flex: 1; padding: 7px; font-size: 0.8rem; }
+    .track-list { display: flex; flex-direction: column; gap: 7px; max-height: 195px; overflow-y: auto; }
+    .track-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 9px 12px; border-radius: 10px; background: #0d1424; border: 1px solid var(--border);
+      cursor: pointer; font-size: 0.84rem;
+    }
+    .track-item.active { border-color: var(--violet); background: rgba(167,139,250,0.14); }
+    .track-meta { font-size: 0.72rem; color: var(--muted); }
+    .drop-zone {
+      border: 1.5px dashed var(--border); border-radius: 12px; padding: 16px;
+      text-align: center; font-size: 0.82rem; color: var(--muted); cursor: pointer; margin-bottom: 10px;
+    }
+    .drop-zone:hover { border-color: var(--violet); color: var(--text); }
+    .noise-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px; }
+    .noise-grid button { padding: 7px 6px; font-size: 0.78rem; }
+    .timer-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .timer-display { font-size: 1.6rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--emerald); }
+    .timer-btns { display: flex; gap: 6px; }
+    .timer-btns button { padding: 6px 10px; font-size: 0.78rem; }
+    .hint {
+      margin-top: 14px; font-size: 0.76rem; color: var(--muted);
+      background: rgba(15, 23, 42, 0.7); padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+    }
+    #installBtn { display: none; border-color: var(--emerald); color: var(--emerald); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo-badge">NW</div>
+        <div>
+          <h1>NeuralWave Studio</h1>
+          <div class="subtitle">Stereo Binaural Synthesizer + Layered Focus Music</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="pill" id="offlineBadge">Offline Ready</span>
+        <button id="installBtn">Install App</button>
+        <button id="testLRBtn">Test L/R Ears</button>
+        <button id="masterPlayBtn" class="primary">Start Focus Session</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- BINAURAL ENGINE -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title"><span class="dot" style="background:var(--cyan)"></span>1. Binaural Beats Engine</div>
+          <span class="subtitle" id="earReadout">L: 200 Hz | R: 240 Hz</span>
+        </div>
+
+        <div class="scope-wrap">
+          <div class="scope-legend">
+            <span>Left Carrier + Right Offset</span>
+            <span id="beatBadge">40 Hz Gamma</span>
+          </div>
+          <canvas id="scopeCanvas"></canvas>
+        </div>
+
+        <div class="presets" id="presetGrid">
+          <button class="preset-btn active" data-beat="40" data-carrier="200" data-name="40 Hz Gamma">
+            <span class="hz">40 Hz Gamma</span><span class="lbl">Peak Focus</span>
+          </button>
+          <button class="preset-btn" data-beat="16" data-carrier="180" data-name="16 Hz Beta">
+            <span class="hz">16 Hz Beta</span><span class="lbl">Active Flow</span>
+          </button>
+          <button class="preset-btn" data-beat="10" data-carrier="160" data-name="10 Hz Alpha">
+            <span class="hz">10 Hz Alpha</span><span class="lbl">Calm Strategy</span>
+          </button>
+          <button class="preset-btn" data-beat="6" data-carrier="140" data-name="6 Hz Theta">
+            <span class="hz">6 Hz Theta</span><span class="lbl">Deep Reset</span>
+          </button>
+          <button class="preset-btn" data-beat="2" data-carrier="110" data-name="2 Hz Delta">
+            <span class="hz">2 Hz Delta</span><span class="lbl">Rest / Wind-Down</span>
+          </button>
+        </div>
+
+        <div class="control-row">
+          <div class="control-label"><span>Binaural Beat Frequency</span><strong id="beatVal">40 Hz</strong></div>
+          <input type="range" id="beatSlider" min="1" max="45" step="0.5" value="40" />
+        </div>
+        <div class="control-row">
+          <div class="control-label"><span>Base Carrier Pitch (Warmth)</span><strong id="carrierVal">200 Hz</strong></div>
+          <input type="range" id="carrierSlider" min="100" max="400" step="2" value="200" />
+        </div>
+      </section>
+
+      <!-- MUSIC OVERLAY -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title"><span class="dot" style="background:var(--violet)"></span>2. Music Overlay Playlist</div>
+          <span class="subtitle" id="nowPlayingLabel">Neural Drift</span>
+        </div>
+
+        <div class="tabs">
+          <button id="tabSynth" class="active">Generative Synth</button>
+          <button id="tabLocal">Your Audio Files</button>
+        </div>
+
+        <div id="synthPanel">
+          <div class="track-list" id="synthTrackList">
+            <div class="track-item active" data-track="0">
+              <div><strong>Neural Drift</strong><div class="track-meta">D Minor Pentatonic • Warm Pad & Pluck</div></div>
+              <span>Synth</span>
+            </div>
+            <div class="track-item" data-track="1">
+              <div><strong>Midnight Terminal</strong><div class="track-meta">F Lydian • Deep Pulse & Shimmer</div></div>
+              <span>Synth</span>
+            </div>
+            <div class="track-item" data-track="2">
+              <div><strong>Solaris Horizon</strong><div class="track-meta">C Major 9 • Uplifting Harmonics</div></div>
+              <span>Synth</span>
+            </div>
+            <div class="track-item" data-track="3">
+              <div><strong>Quiet Rain & Keys</strong><div class="track-meta">A Minor • Soft Electric Keys</div></div>
+              <span>Synth</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="localPanel" style="display:none;">
+          <div class="drop-zone" id="dropZone">
+            Drop MP3, WAV, M4A, or OGG files here — or click to browse
+            <input type="file" id="fileInput" accept="audio/*" multiple style="display:none;" />
+          </div>
+          <div class="track-list" id="localTrackList"></div>
+        </div>
+
+        <div class="hint">
+          <strong>Headphone Rule:</strong> Stereo separation sends distinct frequencies to each ear so your brain perceives the rhythmic beat underneath the music.
+        </div>
+      </section>
+
+      <!-- MIXER, NOISE & TIMER -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title"><span class="dot" style="background:var(--emerald)"></span>3. Ambient Masking & Mixer</div>
+        </div>
+
+        <div class="control-label"><span>Background Noise Layer</span></div>
+        <div class="noise-grid" id="noiseGrid">
+          <button class="active" data-noise="off">Off</button>
+          <button data-noise="brown">Brown</button>
+          <button data-noise="pink">Pink</button>
+          <button data-noise="rain">Rain</button>
+        </div>
+
+        <div class="control-row">
+          <div class="control-label"><span>Binaural Beats Level</span><strong id="binVolVal">35%</strong></div>
+          <input type="range" id="binVol" min="0" max="100" value="35" />
+        </div>
+        <div class="control-row">
+          <div class="control-label"><span>Music Overlay Level</span><strong id="musVolVal">65%</strong></div>
+          <input type="range" id="musVol" min="0" max="100" value="65" />
+        </div>
+        <div class="control-row">
+          <div class="control-label"><span>Ambient Noise Level</span><strong id="noiVolVal">25%</strong></div>
+          <input type="range" id="noiVol" min="0" max="100" value="25" />
+        </div>
+        <div class="control-row">
+          <div class="control-label"><span>Master Output</span><strong id="masVolVal">85%</strong></div>
+          <input type="range" id="masVol" min="0" max="100" value="85" />
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;" />
+
+        <div class="timer-row">
+          <div>
+            <div style="font-size:0.74rem;color:var(--muted);">FOCUS SESSION TIMER</div>
+            <div class="timer-display" id="timerDisplay">50:00</div>
+          </div>
+          <div class="timer-btns" id="timerPresets">
+            <button data-mins="25">25m</button>
+            <button class="active" data-mins="50">50m</button>
+            <button data-mins="90">90m</button>
+            <button data-mins="0">∞</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <audio id="localAudioEl" crossorigin="anonymous"></audio>
+
+  <script>
+    // Register Service Worker for offline PWA support
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+
+    // PWA Install prompt handling
+    let deferredPrompt = null;
+    const installBtn = document.getElementById('installBtn');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = 'inline-block';
+    });
+    installBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      installBtn.style.display = 'none';
+    });
+
+    // Audio Engine State
+    let ctx = null;
+    let isPlaying = false;
+    let masterGain, binauralGain, musicGain, noiseGain, analyser;
+    let leftOsc, rightOsc, leftPan, rightPan;
+    let noiseNode = null;
+    let synthInterval = null;
+    let mediaSourceConnected = false;
+
+    let beatFreq = 40;
+    let carrierFreq = 200;
+    let musicMode = 'synth'; // 'synth' | 'local'
+    let activeSynthTrack = 0;
+    let noiseType = 'off';
+    let localFiles = [];
+    let currentLocalIdx = 0;
+
+    // Timer state
+    let timerDurationSec = 50 * 60;
+    let timerRemainingSec = 50 * 60;
+    let timerInterval = null;
+
+    const synthScales = [
+      { name: 'Neural Drift', notes: [146.83, 174.61, 196.00, 220.00, 261.63, 293.66, 349.23], bass: 73.42, tempo: 1800 },
+      { name: 'Midnight Terminal', notes: [174.61, 220.00, 261.63, 329.63, 392.00, 440.00], bass: 87.31, tempo: 1500 },
+      { name: 'Solaris Horizon', notes: [130.81, 164.81, 196.00, 246.94, 293.66, 329.63], bass: 65.41, tempo: 2100 },
+      { name: 'Quiet Rain & Keys', notes: [220.00, 261.63, 329.63, 392.00, 493.88, 523.25], bass: 110.00, tempo: 2400 }
+    ];
+
+    function initAudio() {
+      if (ctx) return;
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      ctx = new AudioCtx();
+
+      masterGain = ctx.createGain();
+      masterGain.gain.value = 0.85;
+
+      binauralGain = ctx.createGain();
+      binauralGain.gain.value = 0.0001;
+
+      musicGain = ctx.createGain();
+      musicGain.gain.value = 0.65;
+
+      noiseGain = ctx.createGain();
+      noiseGain.gain.value = 0.25;
+
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+
+      binauralGain.connect(masterGain);
+      musicGain.connect(masterGain);
+      noiseGain.connect(masterGain);
+      masterGain.connect(analyser);
+      analyser.connect(ctx.destination);
+
+      // Stereo Binaural Oscillators
+      leftOsc = ctx.createOscillator();
+      rightOsc = ctx.createOscillator();
+      leftOsc.type = 'sine';
+      rightOsc.type = 'sine';
+      leftOsc.frequency.value = carrierFreq;
+      rightOsc.frequency.value = carrierFreq + beatFreq;
+
+      leftPan = ctx.createStereoPanner();
+      rightPan = ctx.createStereoPanner();
+      leftPan.pan.value = -1;
+      rightPan.pan.value = 1;
+
+      leftOsc.connect(leftPan).connect(binauralGain);
+      rightOsc.connect(rightPan).connect(binauralGain);
+
+      leftOsc.start();
+      rightOsc.start();
+
+      // Connect local HTML5 Audio element once
+      const localAudioEl = document.getElementById('localAudioEl');
+      if (!mediaSourceConnected) {
+        const src = ctx.createMediaElementSource(localAudioEl);
+        src.connect(musicGain);
+        mediaSourceConnected = true;
+      }
+    }
+
+    function updateFrequencies() {
+      document.getElementById('beatVal').textContent = beatFreq + ' Hz';
+      document.getElementById('carrierVal').textContent = carrierFreq + ' Hz';
+      document.getElementById('earReadout').textContent = `L: ${carrierFreq} Hz | R: ${carrierFreq + beatFreq} Hz`;
+      if (ctx && leftOsc && rightOsc) {
+        const now = ctx.currentTime;
+        leftOsc.frequency.setTargetAtTime(carrierFreq, now, 0.05);
+        rightOsc.frequency.setTargetAtTime(carrierFreq + beatFreq, now, 0.05);
+      }
+    }
+
+    function startNoise(type) {
+      if (!ctx) return;
+      if (noiseNode) {
+        try { noiseNode.stop(); noiseNode.disconnect(); } catch (e) {}
+        noiseNode = null;
+      }
+      if (type === 'off') return;
+
+      const bufferSize = ctx.sampleRate * 3;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      if (type === 'brown') {
+        let lastOut = 0.0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          data[i] = (lastOut + 0.02 * white) / 1.02;
+          lastOut = data[i];
+          data[i] *= 3.2;
+        }
+      } else if (type === 'pink' || type === 'rain') {
+        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          b0 = 0.99886 * b0 + white * 0.0555179;
+          b1 = 0.99332 * b1 + white * 0.0750759;
+          b2 = 0.96900 * b2 + white * 0.1538520;
+          b3 = 0.86650 * b3 + white * 0.3104856;
+          b4 = 0.55000 * b4 + white * 0.5329522;
+          b5 = -0.7616 * b5 - white * 0.0168980;
+          data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.08;
+          b6 = white * 0.115926;
+        }
+      }
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+
+      if (type === 'rain') {
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 1100;
+        filter.Q.value = 0.7;
+        source.connect(filter).connect(noiseGain);
+      } else {
+        source.connect(noiseGain);
+      }
+
+      source.start();
+      noiseNode = source;
+    }
+
+    function playSynthStep() {
+      if (!ctx || !isPlaying || musicMode !== 'synth') return;
+      const scale = synthScales[activeSynthTrack];
+      const now = ctx.currentTime;
+
+      // Soft melodic pad/bell voice
+      const freq = scale.notes[Math.floor(Math.random() * scale.notes.length)];
+      const osc = ctx.createOscillator();
+      const sub = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      osc.type = 'triangle';
+      sub.type = 'sine';
+      osc.frequency.value = freq;
+      sub.frequency.value = scale.bass;
+
+      filter.type = 'lowpass';
+      filter.frequency.value = 850;
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.14, now + 0.6);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 3.4);
+
+      osc.connect(filter);
+      sub.connect(filter);
+      filter.connect(gain).connect(musicGain);
+
+      osc.start(now);
+      sub.start(now);
+      osc.stop(now + 3.5);
+      sub.stop(now + 3.5);
+    }
+
+    function startSynthLoop() {
+      stopSynthLoop();
+      const scale = synthScales[activeSynthTrack];
+      playSynthStep();
+      synthInterval = setInterval(playSynthStep, scale.tempo);
+    }
+
+    function stopSynthLoop() {
+      if (synthInterval) {
+        clearInterval(synthInterval);
+        synthInterval = null;
+      }
+    }
+
+    function playChime(panVal = 0, freq = 528) {
+      initAudio();
+      if (ctx.state === 'suspended') ctx.resume();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      const pan = ctx.createStereoPanner();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      pan.pan.value = panVal;
+      g.gain.setValueAtTime(0.001, now);
+      g.gain.exponentialRampToValueAtTime(0.25, now + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
+      osc.connect(g).connect(pan).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.95);
+    }
+
+    function startSession() {
+      initAudio();
+      if (ctx.state === 'suspended') ctx.resume();
+      isPlaying = true;
+      const now = ctx.currentTime;
+      const targetBin = (document.getElementById('binVol').value / 100) * 0.35;
+      binauralGain.gain.cancelScheduledValues(now);
+      binauralGain.gain.setTargetAtTime(Math.max(0.0001, targetBin), now, 0.25);
+
+      if (musicMode === 'synth') {
+        document.getElementById('localAudioEl').pause();
+        startSynthLoop();
+      } else if (localFiles.length > 0) {
+        stopSynthLoop();
+        document.getElementById('localAudioEl').play().catch(() => {});
+      }
+
+      startNoise(noiseType);
+      startTimerCountdown();
+
+      const btn = document.getElementById('masterPlayBtn');
+      btn.textContent = 'Stop Session';
+      btn.classList.add('playing');
+    }
+
+    function stopSession(playEndBell = false) {
+      isPlaying = false;
+      stopSynthLoop();
+      stopTimerCountdown();
+      document.getElementById('localAudioEl').pause();
+
+      if (ctx && binauralGain) {
+        const now = ctx.currentTime;
+        binauralGain.gain.cancelScheduledValues(now);
+        binauralGain.gain.setTargetAtTime(0.0001, now, 0.15);
+      }
+      if (noiseNode) {
+        try { noiseNode.stop(); noiseNode.disconnect(); } catch (e) {}
+        noiseNode = null;
+      }
+      if (playEndBell) playChime(0, 432);
+
+      const btn = document.getElementById('masterPlayBtn');
+      btn.textContent = 'Start Focus Session';
+      btn.classList.remove('playing');
+    }
+
+    // Timer Logic
+    function formatTime(sec) {
+      if (timerDurationSec === 0) return '∞';
+      const m = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function startTimerCountdown() {
+      stopTimerCountdown();
+      if (timerDurationSec === 0) return;
+      timerInterval = setInterval(() => {
+        if (timerRemainingSec > 0) {
+          timerRemainingSec--;
+          document.getElementById('timerDisplay').textContent = formatTime(timerRemainingSec);
+        } else {
+          timerRemainingSec = timerDurationSec;
+          document.getElementById('timerDisplay').textContent = formatTime(timerRemainingSec);
+          stopSession(true);
+        }
+      }, 1000);
+    }
+
+    function stopTimerCountdown() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    // Event Listeners
+    document.getElementById('masterPlayBtn').addEventListener('click', () => {
+      if (isPlaying) stopSession(false);
+      else startSession();
+    });
+
+    document.getElementById('testLRBtn').addEventListener('click', () => {
+      playChime(-1, 440);
+      setTimeout(() => playChime(1, 554.37), 550);
+    });
+
+    document.querySelectorAll('#presetGrid .preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#presetGrid .preset-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        beatFreq = parseFloat(btn.dataset.beat);
+        carrierFreq = parseFloat(btn.dataset.carrier);
+        document.getElementById('beatSlider').value = beatFreq;
+        document.getElementById('carrierSlider').value = carrierFreq;
+        document.getElementById('beatBadge').textContent = btn.dataset.name;
+        updateFrequencies();
+      });
+    });
+
+    document.getElementById('beatSlider').addEventListener('input', (e) => {
+      beatFreq = parseFloat(e.target.value);
+      document.getElementById('beatBadge').textContent = beatFreq + ' Hz Custom';
+      updateFrequencies();
+    });
+
+    document.getElementById('carrierSlider').addEventListener('input', (e) => {
+      carrierFreq = parseFloat(e.target.value);
+      updateFrequencies();
+    });
+
+    // Music Mode Tabs
+    document.getElementById('tabSynth').addEventListener('click', () => {
+      musicMode = 'synth';
+      document.getElementById('tabSynth').classList.add('active');
+      document.getElementById('tabLocal').classList.remove('active');
+      document.getElementById('synthPanel').style.display = 'block';
+      document.getElementById('localPanel').style.display = 'none';
+      document.getElementById('nowPlayingLabel').textContent = synthScales[activeSynthTrack].name;
+      if (isPlaying) {
+        document.getElementById('localAudioEl').pause();
+        startSynthLoop();
+      }
+    });
+
+    document.getElementById('tabLocal').addEventListener('click', () => {
+      musicMode = 'local';
+      document.getElementById('tabLocal').classList.add('active');
+      document.getElementById('tabSynth').classList.remove('active');
+      document.getElementById('synthPanel').style.display = 'none';
+      document.getElementById('localPanel').style.display = 'block';
+      stopSynthLoop();
+      if (localFiles.length > 0) {
+        document.getElementById('nowPlayingLabel').textContent = localFiles[currentLocalIdx].name;
+        if (isPlaying) document.getElementById('localAudioEl').play().catch(() => {});
+      } else {
+        document.getElementById('nowPlayingLabel').textContent = 'No file loaded';
+      }
+    });
+
+    document.querySelectorAll('#synthTrackList .track-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('#synthTrackList .track-item').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
+        activeSynthTrack = parseInt(item.dataset.track, 10);
+        document.getElementById('nowPlayingLabel').textContent = synthScales[activeSynthTrack].name;
+        if (isPlaying && musicMode === 'synth') startSynthLoop();
+      });
+    });
+
+    // Local Files Upload
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#a78bfa'; });
+    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = ''; });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '';
+      handleFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    function handleFiles(fileList) {
+      const added = Array.from(fileList).filter(f => f.type.startsWith('audio/'));
+      if (!added.length) return;
+      localFiles = localFiles.concat(added);
+      renderLocalList();
+      if (localFiles.length === added.length) playLocalTrack(0);
+    }
+
+    function renderLocalList() {
+      const container = document.getElementById('localTrackList');
+      container.innerHTML = '';
+      localFiles.forEach((file, idx) => {
+        const div = document.createElement('div');
+        div.className = 'track-item' + (idx === currentLocalIdx ? ' active' : '');
+        div.innerHTML = `<div><strong>${file.name}</strong><div class="track-meta">Local Audio Track</div></div><span>Play</span>`;
+        div.addEventListener('click', () => playLocalTrack(idx));
+        container.appendChild(div);
+      });
+    }
+
+    function playLocalTrack(idx) {
+      currentLocalIdx = idx;
+      const file = localFiles[idx];
+      const audioEl = document.getElementById('localAudioEl');
+      audioEl.src = URL.createObjectURL(file);
+      document.getElementById('nowPlayingLabel').textContent = file.name;
+      renderLocalList();
+      if (isPlaying && musicMode === 'local') {
+        initAudio();
+        audioEl.play().catch(() => {});
+      }
+    }
+
+    document.getElementById('localAudioEl').addEventListener('ended', () => {
+      if (localFiles.length > 0) {
+        playLocalTrack((currentLocalIdx + 1) % localFiles.length);
+      }
+    });
+
+    // Noise buttons
+    document.querySelectorAll('#noiseGrid button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#noiseGrid button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        noiseType = btn.dataset.noise;
+        if (isPlaying) startNoise(noiseType);
+      });
+    });
+
+    // Volume Sliders
+    document.getElementById('binVol').addEventListener('input', (e) => {
+      const v = e.target.value;
+      document.getElementById('binVolVal').textContent = v + '%';
+      if (ctx && binauralGain && isPlaying) {
+        binauralGain.gain.setTargetAtTime(Math.max(0.0001, (v / 100) * 0.35), ctx.currentTime, 0.05);
+      }
+    });
+    document.getElementById('musVol').addEventListener('input', (e) => {
+      const v = e.target.value;
+      document.getElementById('musVolVal').textContent = v + '%';
+      if (ctx && musicGain) musicGain.gain.setTargetAtTime(v / 100, ctx.currentTime, 0.05);
+    });
+    document.getElementById('noiVol').addEventListener('input', (e) => {
+      const v = e.target.value;
+      document.getElementById('noiVolVal').textContent = v + '%';
+      if (ctx && noiseGain) noiseGain.gain.setTargetAtTime(v / 100, ctx.currentTime, 0.05);
+    });
+    document.getElementById('masVol').addEventListener('input', (e) => {
+      const v = e.target.value;
+      document.getElementById('masVolVal').textContent = v + '%';
+      if (ctx && masterGain) masterGain.gain.setTargetAtTime(v / 100, ctx.currentTime, 0.05);
+    });
+
+    // Timer Presets
+    document.querySelectorAll('#timerPresets button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#timerPresets button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const mins = parseInt(btn.dataset.mins, 10);
+        timerDurationSec = mins * 60;
+        timerRemainingSec = timerDurationSec;
+        document.getElementById('timerDisplay').textContent = formatTime(timerRemainingSec);
+        if (isPlaying) startTimerCountdown();
+      });
+    });
+
+    // Oscilloscope Visualization
+    const canvas = document.getElementById('scopeCanvas');
+    const c2d = canvas.getContext('2d');
+    let phase = 0;
+
+    function drawScope() {
+      requestAnimationFrame(drawScope);
+      const w = canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
+      const h = canvas.height = canvas.clientHeight * (window.devicePixelRatio || 1);
+      c2d.clearRect(0, 0, w, h);
+
+      const mid = h / 2;
+      phase += isPlaying ? 0.06 : 0.012;
+
+      // Left wave (cyan)
+      c2d.beginPath();
+      c2d.strokeStyle = 'rgba(34, 211, 238, 0.85)';
+      c2d.lineWidth = 2;
+      for (let x = 0; x < w; x += 3) {
+        const norm = x / w;
+        const amp = (isPlaying ? 0.32 : 0.08) * h * Math.sin(norm * Math.PI);
+        const y = mid + Math.sin(norm * (carrierFreq / 18) + phase) * amp;
+        if (x === 0) c2d.moveTo(x, y); else c2d.lineTo(x, y);
+      }
+      c2d.stroke();
+
+      // Right wave (violet)
+      c2d.beginPath();
+      c2d.strokeStyle = 'rgba(167, 139, 250, 0.85)';
+      c2d.lineWidth = 2;
+      for (let x = 0; x < w; x += 3) {
+        const norm = x / w;
+        const amp = (isPlaying ? 0.32 : 0.08) * h * Math.sin(norm * Math.PI);
+        const y = mid + Math.sin(norm * ((carrierFreq + beatFreq) / 18) + phase * 1.15) * amp;
+        if (x === 0) c2d.moveTo(x, y); else c2d.lineTo(x, y);
+      }
+      c2d.stroke();
+    }
+    drawScope();
+  </script>
+</body>
+</html>
